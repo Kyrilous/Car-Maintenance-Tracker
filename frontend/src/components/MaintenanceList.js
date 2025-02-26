@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Card, Typography, Box, Button } from "@mui/material";
+import Card from "@mui/material/Card";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import CardContent from "@mui/material/CardContent";
 
 function MaintenanceList(){
@@ -8,7 +11,9 @@ function MaintenanceList(){
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        fetch("http://127.0.0.1:5000/records")
+      const userId = localStorage.getItem('user_id');
+      console.log("✅ Fetching records for user ID:", userId);
+      fetch(`http://127.0.0.1:5000/records?user_id=${userId}`)
         .then((response) => {
             if(!response.ok){
                 throw new Error("Failed to fetch data from database");
@@ -63,7 +68,7 @@ function MaintenanceList(){
             <Typography color="textSecondary">No records found.</Typography>
           ) : (
             records.map((record, index) => (
-              <Card key={index} sx={{ marginBottom: "10px", variant:"outlined" ,padding: "10px", borderRadius: "8px", backgroundColor: "#f9f9f9" }}>
+              <Card key={record.id} sx={{ marginBottom: "10px", variant:"outlined" ,padding: "10px", borderRadius: "8px", backgroundColor: "#f9f9f9" }}>
                 <CardContent>
                   <Typography variant="h6" fontWeight="bold">
                     {record.service_type}
