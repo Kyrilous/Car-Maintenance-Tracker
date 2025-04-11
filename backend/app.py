@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_migrate import Migrate
+from functools import wraps
+import firebase_admin
+from firebase_admin import credentials, auth
 
 
 app = Flask(__name__)
@@ -11,6 +14,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///maintenance.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)  
+
+cred = credentials.Certificate("firebase-admin-key.json")
+firebase_admin.initialize_app(cred)
 
 
 class MaintenanceRecord(db.Model):
@@ -24,36 +30,68 @@ class MaintenanceRecord(db.Model):
 with app.app_context():
     db.create_all()
 
-# Endpoint to add records
+
+
+
+def verify_token(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+        print("Authorization header received:", auth_header)
+        if not auth_header:
+            return jsonify({"error": "Unauthorized"}), 403
+
+        try:
+            token = auth_header.split(" ")[1]
+            decoded_token = auth.verify_id_token(token)
+            request.user_id = decoded_token["uid"]
+        except Exception as e:
+            print("Token verification failed:", e)
+            return jsonify({"error": "Invalid token"}), 403
+
+        return f(*args, **kwargs)  
+
+    return decorated_function  
+
+
+
+ # Endpoint to add records
 @app.route('/add_record', methods=['POST'])
+@verify_token
 def add_record():
     data = request.json
-    print("📥 Received data:", data)  # Debugging log
+    user_id = request.user_id
+    print("📥 Received data:", data)  
 
-    if 'user_id' not in data:  
-        return jsonify({"error": "User ID is required."}), 400
+    if not user_id or not data.get("serviceType") or not data.get("mileage") or not data.get("date"):
+        return jsonify({"error": "Missing required fields."}), 400
 
     new_record = MaintenanceRecord(
+        user_id=user_id,
         service_type=data['serviceType'], 
         mileage=data['mileage'], 
         date=data['date'],
-        user_id=data['user_id']  
     )
 
     db.session.add(new_record)
-    db.session.commit()  # Ensure the record is saved
+    db.session.commit()  
 
-    return jsonify({"message": "Record added successfully"})
+    return jsonify({
+    "id": new_record.id,
+    "user_id": new_record.user_id,
+    "serviceType": new_record.service_type,
+    "mileage": new_record.mileage,
+    "date": new_record.date
+})
+
 
 
 
 # Endpoint to get all records
 @app.route('/records', methods=['GET'])
+@verify_token
 def get_records():
-    user_id = request.args.get('user_id')
-    if not user_id:
-        return jsonify({"error": "User ID is required"}), 400
-
+    user_id = request.user_id  
     records = MaintenanceRecord.query.filter_by(user_id=user_id).all()
     return jsonify([{
         "id": record.id,

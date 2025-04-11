@@ -1,55 +1,82 @@
-import React, { useState, useEffect } from "react";
-import { auth, signOut } from "./firebase";
-import Login from "./components/Login";
+import React, { useEffect, useState, useContext } from "react";
+import { CssBaseline, Box, Button, Typography, Switch, FormControlLabel, ThemeProvider, GlobalStyles } from "@mui/material";
 import AddMaintenance from "./components/AddMaintenance";
 import MaintenanceList from "./components/MaintenanceList";
+import Login from "./components/Login";
+
+import { auth } from "./firebase";
+import { ThemeToggleContext, darkTheme, lightTheme } from "./ThemeContext";
 
 function App() {
   const [user, setUser] = useState(null);
   const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [newlyAddedId, setNewlyAddedId] = useState(null);
+  const { mode, setMode } = useContext(ThemeToggleContext);
+  const theme = mode === "dark" ? darkTheme : lightTheme;
 
-  // Load user from localStorage
-  useEffect(() => {
-    const storedUserId = localStorage.getItem("user_id");
-    const storedUserEmail = localStorage.getItem("userEmail");
-
-    if (storedUserId) {
-      setUser({ uid: storedUserId, email: storedUserEmail });
+  const handleAddRecord = async (record) => {
+    try {
+      const token = await user.getIdToken();
+  
+      const response = await fetch('http://127.0.0.1:5000/add_record', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...record,
+          user_id: user.uid,
+        }),
+      });
+  
+      if (!response.ok) throw new Error('Failed to add record');
+  
+      // ✅ Parse the saved record returned from backend
+      const savedRecord = await response.json();
+  
+      // ✅ Append the new record (with real ID) to the records list
+      setRecords((prev) => [savedRecord, ...prev]); // puts on top
+  
+    } catch (error) {
+      console.error('Add record error:', error);
     }
+  };
+  
+  
+  
+  
 
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        console.log("✅ User logged in:", user.uid);
-        setUser(user);
-        localStorage.setItem("user_id", user.uid);
-        localStorage.setItem("userEmail", user.email);
-      } else {
-        console.log("❌ No user found, clearing storage.");
-        setUser(null);
-        localStorage.removeItem("user_id");
-        localStorage.removeItem("userEmail");
-      }
-      setLoading(false);
+  const handleDeleteRecord = async (id) => {
+  try {
+    const token = await user.getIdToken();
+    const response = await fetch(`http://127.0.0.1:5000/records/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
 
-    return () => unsubscribe();
-  }, []);
+    if (!response.ok) throw new Error("Failed to delete record");
 
-  // Fetch records for the logged in user
-  const fetchRecords = async () => {
-    if (!user || !user.uid) {
-      console.log("User ID is missing, skipping API call.");
-      return;
-    }
+    setRecords((prev) => prev.filter((record) => record.id !== id));
+  } catch (error) {
+    console.error("Delete error:", error);
+  }
+};
 
-    console.log("Fetching records for user ID:", user.uid);
 
+  const fetchRecords = async (user) => {
     try {
-      const response = await fetch(`http://127.0.0.1:5000/records?user_id=${user.uid}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch data from database");
-      }
+      const token = await user.getIdToken();
+      const response = await fetch(`http://127.0.0.1:5000/records?user_id=${user.uid}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch records");
+
       const data = await response.json();
       setRecords(data);
     } catch (error) {
@@ -58,33 +85,92 @@ function App() {
   };
 
   useEffect(() => {
-    if (user && user.uid) {
-      fetchRecords();
-    }
-  }, [user]);
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setUser(user);
+        fetchRecords(user);
+      } else {
+        setUser(null);
+        setRecords([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    setUser(null);
-    setRecords([]);
-  };
-
-  if (loading) return <p>Loading...</p>;
+  useEffect(() => {
+    const savedMode = localStorage.getItem("themeMode");
+    if (savedMode) setMode(savedMode);
+  }, [setMode]);
 
   return (
-    <div>
-      <h1>Car Maintenance Tracker</h1>
-      {user ? (
-        <>
-          <p>Welcome, {user.email}</p>
-          <button onClick={handleLogout}>Logout</button>
-          <AddMaintenance user_id={user.uid} onAdd={fetchRecords} />
-          <MaintenanceList user_id={user.uid} records={records} />
-        </>
-      ) : (
-        <Login onLogin={setUser} />
-      )}
-    </div>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <GlobalStyles
+        styles={{
+          body: {
+            margin: 0,
+            backgroundColor: theme.palette.background.default,
+          },
+          "#root": {
+            backgroundColor: theme.palette.background.default,
+            minHeight: "100vh",
+          },
+        }}
+      />
+      <Box sx={{ p: 2, backgroundColor: theme.palette.background.default, minHeight: "100vh" }}>
+        <Typography variant="h4" align="center" fontWeight="bold" sx={{ color: theme.palette.primary.main, mb: 3 }}>
+          🚗 AutoLog
+        </Typography>
+
+        {user ? (
+          <>
+            <Box
+              display="flex"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{
+                backgroundColor: theme.palette.background.paper, // ✅ Reads from active theme
+                padding: "1rem 1.5rem",
+                borderRadius: "8px",
+                marginBottom: "1.5rem",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight="500">
+                Hello, {user.displayName?.split(" ")[0] || "there"}
+              </Typography>
+
+              <Box display="flex" alignItems="center" gap={2}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={mode === "dark"}
+                      onChange={() =>
+                        setMode((prev) => {
+                          const next = prev === "light" ? "dark" : "light";
+                          localStorage.setItem("themeMode", next);
+                          return next;
+                        })
+                      }
+                      color="primary"
+                    />
+                  }
+                  label={mode === "dark" ? "Dark" : "Light"}
+                />
+                <Button variant="outlined" color="error" onClick={() => auth.signOut()}>
+                  Logout
+                </Button>
+              </Box>
+            </Box>
+
+            <AddMaintenance user={user} user_id={user.uid} onAdd={handleAddRecord} />
+            <MaintenanceList records={records} user_id={user.uid} onDelete={handleDeleteRecord} newlyAddedId={newlyAddedId} />
+          </>
+        ) : (
+          <Login onLogin={setUser} />
+        )}
+      </Box>
+    </ThemeProvider>
   );
 }
 

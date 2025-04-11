@@ -1,124 +1,113 @@
 import React, { useState } from "react";
-import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
-import Box from "@mui/material/Box";
+import { Box, Typography, TextField, Button, Autocomplete, useTheme } from "@mui/material";
 
+function AddMaintenance({ onAdd, user }) {
+  const theme = useTheme();
+  const [serviceType, setServiceType] = useState("");
+  const [mileage, setMileage] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
+  const maintenanceOptions = [
+    "Oil Change", "Brake Pads", "Tire Rotation", "Battery Replacement",
+    "Spark Plugs", "Coolant Flush", "Transmission Fluid", "Cabin Air Filter",
+    "Inspection", "Alignment", "Tire Change", "Power Steering Fluid", "Serpentine Belt",
+    "Wiper Blades", "Brake Fluid", "Engine Replacement", "Transmission Replacement",
+    "Brake Caliper Replacement", "Strut Replacement", "Wheel Balance",
+    "Alternator Replacement", "Engine Air Filter Replacement",
+    "Headlight Bulb Replacement", "Windshield Crack Repair", "Windshield Replacement"
+  ];
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) return;
 
-function AddMaintenance({ userId ,onAdd }){
-    const [serviceType, setServiceType] = useState("");
-    const [mileage, setMileage] = useState("");
-    const [date, setDate] = useState("");
+    const token = await user.getIdToken();
 
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      if (!serviceType || !mileage || !date) return;
-  
-      const newRecord = { user_id: userId, serviceType, mileage, date };
-  
-      try {
-          const response = await fetch("http://127.0.0.1:5000/add_record", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(newRecord),
-          });
-  
-          if (!response.ok) {
-              throw new Error("Failed to add record");
-          }
-  
-          const data = await response.json();
-          console.log("Record Added Successfully!", data);
-  
-          // Reset form
-          setMileage("");
-          setDate("");
-          setServiceType("");
-  
-          // Call onAdd only if it exists
-          if (typeof onAdd === "function") {
-              onAdd();
-          } else {
-              console.warn("onAdd is not a function");
-          }
-  
-      } catch (error) {
-          console.error("Error:", error);
-      }
-  };
-  
+    try {
+      const response = await fetch("http://127.0.0.1:5000/add_record", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, 
+        },
+        body: JSON.stringify({
+          serviceType,
+          mileage,
+          date,
+        }),
+      });
 
-    
+      if (!response.ok) throw new Error("Failed to add record");
+      const saved = await response.json();
+      onAdd(saved);
 
-
-    return (
-       <Box
-  sx={{
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 2, 
-    width: "100%",
-    maxWidth: "400px", 
-    margin: "auto",
-  }}
->
-  {/* Service Type Dropdown */}
-  <TextField
-    select
-    fullWidth
-    label="Service Type"
-    value={serviceType}
-    onChange={(e) => setServiceType(e.target.value)}
-    variant="outlined"
-  >
-    <MenuItem value="Oil Change">Oil Change</MenuItem>
-    <MenuItem value="Brake Pads">Brake Pads</MenuItem>
-    <MenuItem value="Tire Rotation">Tire Rotation</MenuItem>
-  </TextField>
-
-  {/* Mileage Input */}
-  <TextField
-    fullWidth
-    type="number"
-    label="Mileage"
-    value={mileage}
-    onChange={(e) => setMileage(e.target.value)}
-    variant="outlined"
-  />
-
-  {/* Date Input */}
-  <TextField
-    fullWidth
-    type="date"
-    label="Date"
-    value={date}
-    onChange={(e) => setDate(e.target.value)}
-    variant="outlined"
-  />
-
-  {/* Submit Button */}
-  <Button
-    variant="contained"
-    color="primary"
-    sx={{ width: "100%", fontSize: "16px", padding: "10px", borderRadius: "8px" }}
-    onClick={handleSubmit}
-
-  >
-    ADD MAINTENANCE RECORD
-  </Button>
-</Box>
-        
-      );
-        
-      
+      setServiceType("");
+      setMileage("");
+      setDate(new Date().toISOString().split("T")[0]);
+    } catch (err) {
+      console.error("Error submitting record:", err);
     }
+  };
 
-    
-    
-    export default AddMaintenance;
+  return (
+    <Box
+      sx={{
+        maxWidth: "600px",
+        margin: "auto",
+        marginTop: "20px",
+        padding: "20px",
+        borderRadius: "8px",
+        backgroundColor: theme.palette.background.paper,
+        boxShadow: 3,
+      }}
+    >
+      <Typography variant="h6" fontWeight="bold" gutterBottom>
+        Add Maintenance Record
+      </Typography>
+      <form onSubmit={handleSubmit}>
+        <Autocomplete
+          freeSolo
+          fullWidth
+          options={maintenanceOptions}
+          value={serviceType}
+          onChange={(e, value) => setServiceType(value)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Service Type"
+              required
+              margin="normal"
+              fullWidth
+            />
+          )}
+        />
+        <TextField
+          fullWidth
+          label="Mileage"
+          type="number"
+          value={mileage}
+          onChange={(e) => setMileage(e.target.value)}
+          inputProps={{ min: 0, max: 1000000 }}
+          required
+          margin="normal"
+        />
+        <TextField
+          fullWidth
+          label="Date"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{ max: new Date().toISOString().split("T")[0] }}
+          required
+          margin="normal"
+        />
+        <Button fullWidth type="submit" variant="contained" color="primary" sx={{ marginTop: "16px" }}>
+          Add Record
+        </Button>
+      </form>
+    </Box>
+  );
+}
+
+export default AddMaintenance;
