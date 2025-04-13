@@ -1,3 +1,10 @@
 .env
 backend/firebase-admin-key.json
 firebase-admin-key.json
+node_modules/
+
+node_modules/
+firebase-admin-key.json
+backend/instance/*.db
+node_modules/
+.cache/

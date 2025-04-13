@@ -129,7 +129,7 @@ function App() {
               justifyContent="space-between"
               alignItems="center"
               sx={{
-                backgroundColor: theme.palette.background.paper, // ✅ Reads from active theme
+                backgroundColor: theme.palette.background.paper, // Reads from theme
                 padding: "1rem 1.5rem",
                 borderRadius: "8px",
                 marginBottom: "1.5rem",
