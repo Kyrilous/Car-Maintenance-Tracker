@@ -1,0 +1,1 @@
+A full stack web application to track vehicle maintenance like oil changes, brake pad replacements, and tire rotations. Built with React, Flask/Django, and SQL, this application is designed to allow users to log, monitor, and schedule car servicing reminders.
